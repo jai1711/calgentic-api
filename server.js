@@ -75,40 +75,58 @@ db.serialize(() => {
 
 // ============ Gemini AI Analysis Endpoint ============
 
-const GEMINI_ANALYSIS_PROMPT = `You are an expert customer service call quality analyst.
-Analyze this phone call audio recording carefully.
+const GEMINI_ANALYSIS_PROMPT = `You are Calgentic AI — enterprise call intelligence engine for Indian businesses (competing with Gong.io, Chorus.ai, Salesforce Einstein).
 
-IMPORTANT: The call may be in English, Hindi, or Hinglish (a mix of Hindi and English commonly used in India). Transcribe and analyze accurately regardless of language mix.
+Analyze this phone call audio. Languages supported: English, Hindi, Hinglish, Marathi, Gujarati, Tamil, Telugu. Auto-detect language.
 
-Based on the ACTUAL content of the conversation, return ONLY valid JSON (no markdown, no code blocks, just raw JSON):
+DEEP ANALYSIS REQUIRED:
+1. VERBATIM TRANSCRIPT — label every turn Agent:/Customer:. For Hindi/Hinglish: write as spoken + [English meaning]
+2. SENTIMENT JOURNEY — track emotion start→middle→end
+3. COMPLIANCE CHECK — proper greeting? identity verified? resolution confirmed? closing used?
+4. OBJECTION HANDLING — how did agent handle complaints/objections?
+5. TALK RATIO — estimate agent vs customer speaking time
+
+SCORING (be PRECISE and UNIQUE per call — never return identical scores for different calls):
+- overall: weighted composite (resolution×0.30 + satisfaction×0.25 + professionalism×0.20 + clarity×0.15 + efficiency×0.10)
+- sentiment: customer emotion (90+=delighted, 70-89=positive, 50-69=neutral, 30-49=frustrated, 0-29=angry)
+- resolution: outcome (90+=exceeded, 70-89=resolved, 50-69=partial, 0-49=unresolved)
+- professionalism: agent conduct (90+=exceptional, 70-89=good, 50-69=adequate, 0-49=poor)
+- clarity: communication quality (90+=crystal clear, 70-89=clear, 0-69=confusing)
+- customerSatisfaction: predicted CSAT (90+=5star, 70-89=satisfied, 50-69=neutral, 0-49=dissatisfied)
+- efficiency: time value (90+=quick perfect, 70-89=efficient, 50-69=adequate, 0-49=slow/wasteful)
+
+Return ONLY valid JSON (no markdown, no code fences, raw JSON only):
 {
-  "transcript": "Full verbatim transcript. Label speakers as 'Agent:' and 'Customer:'. If Hindi/Hinglish is spoken, write it as spoken and add English meaning in [brackets].",
-  "language": "english|hindi|hinglish",
-  "callSummary": "2-3 sentence summary of what happened in this call",
-  "callCategory": "COMPLAINT|INQUIRY|TECHNICAL_SUPPORT|GENERAL|BILLING|FOLLOW_UP|ESCALATION",
+  "transcript": "Complete verbatim. Agent: / Customer: labels. Every word.",
+  "language": "english|hindi|hinglish|marathi|gujarati|tamil|telugu",
+  "callSummary": "3 sentences: (1) purpose, (2) what happened, (3) outcome",
+  "callCategory": "COMPLAINT|INQUIRY|TECHNICAL_SUPPORT|GENERAL|BILLING|FOLLOW_UP|ESCALATION|SALES|FEEDBACK",
+  "customerIntent": "What customer actually wanted in one sentence",
+  "resolutionStatus": "RESOLVED|PARTIALLY_RESOLVED|UNRESOLVED|ESCALATED",
   "scores": {
     "overall": 75,
     "sentiment": 80,
-    "resolution": 65,
+    "resolution": 70,
     "professionalism": 85,
     "clarity": 75,
-    "customerSatisfaction": 70,
-    "efficiency": 80
+    "customerSatisfaction": 72,
+    "efficiency": 78
   },
-  "keyMoments": ["Specific moment 1", "Specific moment 2"],
-  "recommendations": ["Specific improvement 1", "Specific improvement 2"]
+  "keyMoments": [
+    "~0:15 — Customer explained billing issue",
+    "~1:30 — Agent provided resolution",
+    "~2:45 — Call closed professionally"
+  ],
+  "recommendations": [
+    "Specific actionable tip based on THIS call",
+    "Another specific improvement for THIS agent"
+  ],
+  "strengths": ["What agent did well in this call"],
+  "redFlags": ["Issues found in this call if any"],
+  "coachingTip": "One sentence coaching tip specific to this call"
 }
 
-Scoring rules — be ACCURATE and DIFFERENTIATED based on actual conversation:
-- overall: Weighted average of all scores
-- sentiment: Emotional tone throughout call (very positive=90+, positive=70-89, neutral=50-69, negative=30-49, very negative=0-29)
-- resolution: Was issue resolved? (fully resolved=80-100, partially=50-79, unresolved=0-49)
-- professionalism: Agent behavior (excellent manners=80+, good=60-79, average=40-59, poor=0-39)
-- clarity: Communication clarity (very clear=80+, clear=60-79, confusing=0-59)
-- customerSatisfaction: Customer satisfaction at end (happy=80+, satisfied=60-79, neutral=40-59, dissatisfied=0-39)
-- efficiency: Time efficiency (quick resolution=80+, moderate=60-79, slow/repetitive=0-59)
-
-Do NOT return default values. Analyze the actual audio content carefully.`;
+RULES: Never return all-50 defaults. Each call = unique scores. Recommendations must reference actual call content.`;
 
 app.post('/api/analyze-call', upload.single('audio'), async (req, res) => {
     const audioFile = req.file;

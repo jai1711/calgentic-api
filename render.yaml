@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: calgentic-api
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: GEMINI_API_KEY
+        value: AIzaSyBaMDD2PLWGhSBwGG6STWMFze33zsra9HU
+      - key: DATABASE_PATH
+        value: /var/data/calgentic.db
+    disk:
+      name: calgentic-db
+      mountPath: /var/data
+      sizeGB: 1

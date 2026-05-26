@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calgentic AI | User Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --border-color: #334155;
+            --primary: #8b5cf6;
+            --secondary: #3b82f6;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 260px;
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+        .brand {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 40px;
+        }
+        .nav-item {
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        .nav-item:hover, .nav-item.active {
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--primary);
+        }
+        .logout-btn {
+            margin-top: auto;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: rgba(244, 67, 54, 0.1);
+            color: #f87171;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .main {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+        h2 { margin: 0; font-size: 28px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 40px; }
+        .stat-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 24px;
+            border-radius: 20px;
+        }
+        .stat-title { color: var(--text-muted); font-size: 14px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+        .stat-value { font-size: 42px; font-weight: 800; }
+        .table-container { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 24px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 16px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 14px; }
+        .score-badge { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 700; }
+        .score-good { background: rgba(76, 175, 80, 0.15); color: #4caf50; border: 1px solid rgba(76, 175, 80, 0.3); }
+        .score-avg { background: rgba(255, 152, 0, 0.15); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.3); }
+        .score-poor { background: rgba(244, 67, 54, 0.15); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand">Calgentic AI</div>
+    <div class="nav-item active">My Calls</div>
+    <div class="nav-item">Settings</div>
+    <div class="logout-btn" onclick="logout()">Logout</div>
+</div>
+
+<div class="main">
+    <header>
+        <h2>Welcome to your Dashboard</h2>
+    </header>
+
+    <div class="stats-grid">
+        <div class="stat-card"><div class="stat-title">Total Calls Tracked</div><div class="stat-value" id="totalCalls">0</div></div>
+        <div class="stat-card"><div class="stat-title">Average AI Score</div><div class="stat-value" id="avgScore">0</div></div>
+        <div class="stat-card"><div class="stat-title">Avg Duration</div><div class="stat-value" id="avgDuration">0s</div></div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date & Time</th>
+                    <th>Caller Info</th>
+                    <th>Direction</th>
+                    <th>Transcript</th>
+                    <th>AI Score</th>
+                </tr>
+            </thead>
+            <tbody id="callsTableBody">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Loading your calls...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('calgentic_token');
+    const role = localStorage.getItem('calgentic_role');
+    const userId = localStorage.getItem('calgentic_user_id');
+
+    if (!token) window.location.href = '/login.html';
+    if (role === 'CEO') window.location.href = '/ceo_dashboard.html';
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = '/login.html';
+    }
+
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.getElementById(tabId).style.display = 'block';
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch(`/api/calls/${userId}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.status === 401) return logout();
+                const data = await res.json();
+                
+                if (!data || data.length === 0) {
+                    document.getElementById('callsTableBody').innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">No calls found yet. Make a call to see data.</td></tr>';
+                    return;
+                }
+
+                document.getElementById('totalCalls').innerText = data.length;
+                const totalScore = data.reduce((acc, call) => acc + (call.overall_score || 0), 0);
+                document.getElementById('avgScore').innerText = Math.round(totalScore / data.length);
+                const totalDuration = data.reduce((acc, call) => acc + (call.duration || 0), 0);
+                document.getElementById('avgDuration').innerText = Math.round((totalDuration / data.length) / 1000) + 's';
+
+                let html = '';
+                data.forEach(call => {
+                    const date = new Date(call.start_time).toLocaleString();
+                    const score = call.overall_score || 0;
+                    let badgeClass = 'score-good';
+                    if (score < 50) badgeClass = 'score-poor';
+                    else if (score < 80) badgeClass = 'score-avg';
+
+                    html += `
+                        <tr>
+                            <td>${date}</td>
+                            <td><strong>${call.caller_name || 'Unknown'}</strong><br><small style="color:var(--text-muted)">${call.caller_number}</small></td>
+                            <td>${call.call_type}</td>
+                            <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${call.transcript}">${call.transcript || 'N/A'}</td>
+                            <td><span class="score-badge ${badgeClass}">${score}</span></td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('callsTableBody').innerHTML = html;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        loadData();
+    </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules/
+uploads/
+*.db
+.env
+.pm2/
+public/app-debug.apk
+*.apk
+*.log
+calgentic.db

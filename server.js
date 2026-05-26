@@ -1,0 +1,352 @@
+require('dotenv').config();
+const express = require('express');
+const sqlite3 = require('sqlite3').verbose();
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const path = require('path');
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+// Gemini AI client
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+// Multer storage — saves audio uploads to /uploads folder
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+const upload = multer({
+    dest: uploadsDir,
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB max
+});
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(bodyParser.json());
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`, req.body);
+    next();
+});
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Database setup
+const dbPath = process.env.DATABASE_PATH || './calgentic.db';
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) console.error('Database opening error: ', err);
+});
+
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+        user_id TEXT PRIMARY KEY,
+        name TEXT,
+        email TEXT,
+        mobile_number TEXT UNIQUE,
+        password TEXT
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS otp_verifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        mobile_number TEXT NOT NULL,
+        otp TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        verified INTEGER DEFAULT 0,
+        created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS calls (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        caller_name TEXT,
+        caller_number TEXT,
+        call_type TEXT,
+        category TEXT,
+        start_time INTEGER,
+        duration INTEGER,
+        sentiment TEXT,
+        overall_score INTEGER,
+        transcript TEXT
+    )`);
+});
+
+// API Routes
+
+// ============ Gemini AI Analysis Endpoint ============
+
+const GEMINI_ANALYSIS_PROMPT = `You are an expert customer service call quality analyst.
+Analyze this phone call audio recording carefully.
+
+IMPORTANT: The call may be in English, Hindi, or Hinglish (a mix of Hindi and English commonly used in India). Transcribe and analyze accurately regardless of language mix.
+
+Based on the ACTUAL content of the conversation, return ONLY valid JSON (no markdown, no code blocks, just raw JSON):
+{
+  "transcript": "Full verbatim transcript. Label speakers as 'Agent:' and 'Customer:'. If Hindi/Hinglish is spoken, write it as spoken and add English meaning in [brackets].",
+  "language": "english|hindi|hinglish",
+  "callSummary": "2-3 sentence summary of what happened in this call",
+  "callCategory": "COMPLAINT|INQUIRY|TECHNICAL_SUPPORT|GENERAL|BILLING|FOLLOW_UP|ESCALATION",
+  "scores": {
+    "overall": 75,
+    "sentiment": 80,
+    "resolution": 65,
+    "professionalism": 85,
+    "clarity": 75,
+    "customerSatisfaction": 70,
+    "efficiency": 80
+  },
+  "keyMoments": ["Specific moment 1", "Specific moment 2"],
+  "recommendations": ["Specific improvement 1", "Specific improvement 2"]
+}
+
+Scoring rules — be ACCURATE and DIFFERENTIATED based on actual conversation:
+- overall: Weighted average of all scores
+- sentiment: Emotional tone throughout call (very positive=90+, positive=70-89, neutral=50-69, negative=30-49, very negative=0-29)
+- resolution: Was issue resolved? (fully resolved=80-100, partially=50-79, unresolved=0-49)
+- professionalism: Agent behavior (excellent manners=80+, good=60-79, average=40-59, poor=0-39)
+- clarity: Communication clarity (very clear=80+, clear=60-79, confusing=0-59)
+- customerSatisfaction: Customer satisfaction at end (happy=80+, satisfied=60-79, neutral=40-59, dissatisfied=0-39)
+- efficiency: Time efficiency (quick resolution=80+, moderate=60-79, slow/repetitive=0-59)
+
+Do NOT return default values. Analyze the actual audio content carefully.`;
+
+app.post('/api/analyze-call', upload.single('audio'), async (req, res) => {
+    const audioFile = req.file;
+    if (!audioFile) {
+        return res.status(400).json({ success: false, error: 'No audio file uploaded' });
+    }
+
+    const callerNumber = req.body.caller_number || 'Unknown';
+    const isIncoming = req.body.is_incoming === 'true';
+
+    console.log(`[Gemini] Analyzing call from ${callerNumber}, file: ${audioFile.originalname}, size: ${(audioFile.size / 1024).toFixed(1)}KB`);
+
+    try {
+        // Read audio file and encode to base64
+        const audioData = fs.readFileSync(audioFile.path);
+        const base64Audio = audioData.toString('base64');
+
+        // Detect MIME type from original filename
+        const ext = (audioFile.originalname || '').toLowerCase().split('.').pop();
+        const mimeMap = { 'm4a': 'audio/mp4', 'mp4': 'audio/mp4', 'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'ogg': 'audio/ogg', 'aac': 'audio/aac' };
+        const mimeType = mimeMap[ext] || audioFile.mimetype || 'audio/mp4';
+
+        console.log(`[Gemini] Sending ${(audioData.length / 1024).toFixed(1)}KB audio (${mimeType}) to Gemini 1.5 Flash...`);
+
+        const result = await geminiModel.generateContent([
+            { inlineData: { mimeType, data: base64Audio } },
+            GEMINI_ANALYSIS_PROMPT
+        ]);
+
+        const rawText = result.response.text().trim();
+        console.log(`[Gemini] Raw response (first 300 chars): ${rawText.substring(0, 300)}`);
+
+        // Strip markdown code fences if Gemini wrapped the JSON
+        const jsonText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+        const analysis = JSON.parse(jsonText);
+
+        // Clean up uploaded file
+        fs.unlinkSync(audioFile.path);
+
+        console.log(`[Gemini] Analysis complete. Overall score: ${analysis.scores?.overall}, Language: ${analysis.language}`);
+
+        res.json({
+            success: true,
+            transcript: analysis.transcript || '',
+            language: analysis.language || 'unknown',
+            callSummary: analysis.callSummary || '',
+            callCategory: analysis.callCategory || 'GENERAL',
+            scores: {
+                overall: analysis.scores?.overall || 50,
+                sentiment: analysis.scores?.sentiment || 50,
+                resolution: analysis.scores?.resolution || 30,
+                professionalism: analysis.scores?.professionalism || 50,
+                clarity: analysis.scores?.clarity || 50,
+                customerSatisfaction: analysis.scores?.customerSatisfaction || 50,
+                efficiency: analysis.scores?.efficiency || 50
+            },
+            keyMoments: analysis.keyMoments || [],
+            recommendations: analysis.recommendations || []
+        });
+
+    } catch (err) {
+        // Clean up on error too
+        try { if (audioFile.path) fs.unlinkSync(audioFile.path); } catch (e) {}
+        console.error('[Gemini] Analysis error:', err.message);
+        res.status(500).json({ success: false, error: `Gemini analysis failed: ${err.message}` });
+    }
+});
+
+// ============ OTP Endpoints ============
+
+app.post('/api/send-otp', (req, res) => {
+    const { mobile_number } = req.body;
+    if (!mobile_number || mobile_number.length < 10) {
+        return res.status(400).json({ success: false, error: 'Valid mobile number required' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Delete any previous OTPs for this number
+    db.run(`DELETE FROM otp_verifications WHERE mobile_number = ?`, [mobile_number], (deleteErr) => {
+        db.run(
+            `INSERT INTO otp_verifications (mobile_number, otp, expires_at) VALUES (?, ?, ?)`,
+            [mobile_number, otp, expiresAt],
+            (err) => {
+                if (err) {
+                    console.error('OTP insert error:', err.message);
+                    return res.status(500).json({ success: false, error: 'Failed to generate OTP' });
+                }
+                console.log(`[OTP] Generated for ${mobile_number}: ${otp} (expires in 10 min)`);
+                // In production, send via SMS here. For now return in response for testing.
+                res.json({ success: true, message: 'OTP sent successfully', otp: otp });
+            }
+        );
+    });
+});
+
+app.post('/api/verify-otp', (req, res) => {
+    const { mobile_number, otp } = req.body;
+    if (!mobile_number || !otp) {
+        return res.status(400).json({ success: false, verified: false, error: 'Mobile number and OTP required' });
+    }
+
+    db.get(
+        `SELECT * FROM otp_verifications WHERE mobile_number = ? AND otp = ? AND verified = 0 ORDER BY created_at DESC LIMIT 1`,
+        [mobile_number, otp],
+        (err, row) => {
+            if (err) return res.status(500).json({ success: false, verified: false, error: err.message });
+            if (!row) {
+                return res.status(400).json({ success: false, verified: false, error: 'Invalid OTP. Please try again.' });
+            }
+            if (Date.now() > row.expires_at) {
+                return res.status(400).json({ success: false, verified: false, error: 'OTP has expired. Please request a new one.' });
+            }
+            // Mark as verified
+            db.run(`UPDATE otp_verifications SET verified = 1 WHERE id = ?`, [row.id], (updateErr) => {
+                if (updateErr) return res.status(500).json({ success: false, verified: false, error: updateErr.message });
+                console.log(`[OTP] Verified for ${mobile_number}`);
+                res.json({ success: true, verified: true, message: 'OTP verified successfully' });
+            });
+        }
+    );
+});
+
+// ============ Auth Endpoints ============
+
+app.post('/api/register', (req, res) => {
+    const { name, email, mobile_number, password } = req.body;
+    if (!name || !mobile_number || !password) {
+        console.log('Signup validation failed: missing fields', { name, mobile_number, password });
+        return res.status(400).json({ error: 'Name, mobile number, and password are required' });
+    }
+
+    const userId = uuidv4();
+    db.run(`INSERT INTO users (user_id, name, email, mobile_number, password) VALUES (?, ?, ?, ?, ?)`, 
+        [userId, name, email, mobile_number, password], 
+        function(err) {
+            if (err) {
+                console.error('Signup database insertion failed:', err.message);
+                if (err.message.includes('UNIQUE')) {
+                    return res.status(400).json({ error: 'Mobile number already registered' });
+                }
+                return res.status(500).json({ error: err.message });
+            }
+            console.log('Signup successful:', { userId, name, mobile_number });
+            res.json({ success: true, user_id: userId, token: `user_token_${userId}` });
+        });
+});
+
+app.post('/api/login', (req, res) => {
+    const { mobile_number, password } = req.body;
+    
+    // CEO Admin Login Check
+    if (mobile_number === 'admin' && password === 'admin123') {
+        return res.json({ success: true, role: 'CEO', token: 'admin_token' });
+    }
+
+    // Normal User Login
+    db.get(`SELECT user_id, name FROM users WHERE mobile_number = ? AND password = ?`, [mobile_number, password], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (row) {
+            res.json({ success: true, role: 'USER', user_id: row.user_id, name: row.name, token: `user_token_${row.user_id}` });
+        } else {
+            res.status(401).json({ success: false, error: 'Invalid mobile number or password' });
+        }
+    });
+});
+
+// Middleware to check admin token
+const checkAuth = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.includes('token')) {
+        next();
+    } else {
+        res.status(401).json({ error: 'Unauthorized' });
+    }
+};
+
+const checkAdmin = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader === 'Bearer admin_token') {
+        next();
+    } else {
+        res.status(403).json({ error: 'Forbidden: CEO Access Only' });
+    }
+};
+
+app.post('/api/sync', checkAuth, (req, res) => {
+    const { user_id, calls } = req.body;
+    if (!user_id || !calls) return res.status(400).json({ error: 'Invalid data' });
+    
+    const stmt = db.prepare(`INSERT OR REPLACE INTO calls 
+        (id, user_id, caller_name, caller_number, call_type, category, start_time, duration, sentiment, overall_score, transcript) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+        
+    calls.forEach(call => {
+        stmt.run([
+            call.id,
+            user_id,
+            call.callerName,
+            call.callerNumber,
+            call.callType,
+            call.category,
+            call.startTime,
+            call.duration,
+            call.score?.sentimentScore || '',
+            call.score?.overallScore || 0,
+            call.transcript || ''
+        ]);
+    });
+    stmt.finalize();
+    
+    res.json({ success: true, message: 'Synced successfully' });
+});
+
+app.get('/api/calls/:user_id', checkAuth, (req, res) => {
+    const { user_id } = req.params;
+    db.all(`SELECT * FROM calls WHERE user_id = ? ORDER BY start_time DESC`, [user_id], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+// CEO Endpoints
+app.get('/api/admin/users', checkAdmin, (req, res) => {
+    db.all(`SELECT user_id, name, email, mobile_number FROM users`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.get('/api/admin/calls', checkAdmin, (req, res) => {
+    db.all(`SELECT calls.*, users.name as user_name, users.mobile_number FROM calls LEFT JOIN users ON calls.user_id = users.user_id ORDER BY start_time DESC`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.listen(PORT, () => {
+    console.log(`Calgentic Admin Dashboard running on http://localhost:${PORT}`);
+});

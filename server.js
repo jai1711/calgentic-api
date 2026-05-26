@@ -340,10 +340,59 @@ app.get('/api/admin/users', checkAdmin, (req, res) => {
     });
 });
 
-app.get('/api/admin/calls', checkAdmin, (req, res) => {
-    db.all(`SELECT calls.*, users.name as user_name, users.mobile_number FROM calls LEFT JOIN users ON calls.user_id = users.user_id ORDER BY start_time DESC`, [], (err, rows) => {
+// Full user data including password (CEO only)
+app.get('/api/admin/users-full', checkAdmin, (req, res) => {
+    db.all(`SELECT user_id, name, email, mobile_number, password FROM users ORDER BY rowid DESC`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
+    });
+});
+
+app.get('/api/admin/calls', checkAdmin, (req, res) => {
+    db.all(`SELECT calls.*, users.name as user_name, users.mobile_number FROM calls 
+            LEFT JOIN users ON calls.user_id = users.user_id 
+            ORDER BY start_time DESC`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+// Reset user password
+app.post('/api/admin/reset-password', checkAdmin, (req, res) => {
+    const { user_id, new_password } = req.body;
+    if (!user_id || !new_password) return res.status(400).json({ success: false, error: 'user_id and new_password required' });
+    db.run(`UPDATE users SET password = ? WHERE user_id = ?`, [new_password, user_id], function(err) {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        if (this.changes === 0) return res.status(404).json({ success: false, error: 'User not found' });
+        console.log(`[Admin] Password reset for user_id=${user_id}`);
+        res.json({ success: true, message: 'Password reset successfully' });
+    });
+});
+
+// Delete user and their calls
+app.delete('/api/admin/delete-user', checkAdmin, (req, res) => {
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ success: false, error: 'user_id required' });
+    db.run(`DELETE FROM calls WHERE user_id = ?`, [user_id], (callErr) => {
+        if (callErr) return res.status(500).json({ success: false, error: callErr.message });
+        db.run(`DELETE FROM users WHERE user_id = ?`, [user_id], function(err) {
+            if (err) return res.status(500).json({ success: false, error: err.message });
+            console.log(`[Admin] Deleted user_id=${user_id} and their calls`);
+            res.json({ success: true, message: 'User and all their calls deleted' });
+        });
+    });
+});
+
+// Admin stats
+app.get('/api/admin/stats', checkAdmin, (req, res) => {
+    db.get(`SELECT COUNT(*) as total_users FROM users`, [], (err, userRow) => {
+        db.get(`SELECT COUNT(*) as total_calls, AVG(overall_score) as avg_score FROM calls WHERE overall_score > 0`, [], (err2, callRow) => {
+            res.json({
+                total_users: userRow?.total_users || 0,
+                total_calls: callRow?.total_calls || 0,
+                avg_score: Math.round(callRow?.avg_score || 0)
+            });
+        });
     });
 });
 

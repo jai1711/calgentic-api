@@ -3,245 +3,721 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calgentic AI | CEO Dashboard</title>
+    <title>Calgentic | CEO Command Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --surface-color: #1e293b;
-            --border-color: #334155;
-            --primary: #8b5cf6;
-            --secondary: #3b82f6;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
+            --bg: #020817;
+            --surface: #0f172a;
+            --card: #1e293b;
+            --border: #334155;
+            --primary: #6366f1;
+            --primary-glow: rgba(99,102,241,0.3);
+            --accent: #f59e0b;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --text: #f1f5f9;
+            --muted: #64748b;
+            --cyan: #06b6d4;
         }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+
+        /* ── Sidebar ── */
         .sidebar {
-            width: 260px;
-            background: rgba(30, 41, 59, 0.5);
-            backdrop-filter: blur(12px);
-            border-right: 1px solid var(--border-color);
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
+            width: 270px; min-width: 270px; background: var(--surface);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+            padding: 0; position: relative; overflow: hidden;
         }
-        .brand {
-            font-size: 24px;
-            font-weight: 800;
-            background: linear-gradient(90deg, #f59e0b, #ef4444);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 40px;
+        .sidebar::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--cyan), var(--accent));
         }
-        .nav-item {
-            padding: 12px 16px;
-            margin-bottom: 8px;
-            border-radius: 12px;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-        .nav-item:hover, .nav-item.active {
-            background: rgba(245, 158, 11, 0.15);
-            color: #f59e0b;
-        }
-        .logout-btn {
-            margin-top: auto;
-            padding: 12px 16px;
-            border-radius: 12px;
-            background: rgba(244, 67, 54, 0.1);
-            color: #f87171;
-            text-align: center;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .main {
-            flex: 1;
-            padding: 40px;
-            overflow-y: auto;
-        }
-        header { margin-bottom: 40px; }
-        h2 { margin: 0; font-size: 28px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 40px; }
-        .stat-card {
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 24px;
-            border-radius: 20px;
-        }
-        .stat-title { color: var(--text-muted); font-size: 14px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
-        .stat-value { font-size: 42px; font-weight: 800; }
-        
-        .section-title { font-size: 20px; font-weight: 700; margin-bottom: 16px; margin-top: 40px;}
-        .table-container { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 24px; margin-bottom: 40px; overflow-x: auto; }
+        .brand { padding: 28px 24px 20px; border-bottom: 1px solid var(--border); }
+        .brand-logo { font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #6366f1, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .brand-tag { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: 1px; text-transform: uppercase; }
+        .ceo-badge { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(239,68,68,0.15));
+            border: 1px solid rgba(245,158,11,0.3); border-radius: 20px; padding: 4px 10px; font-size: 10px; font-weight: 700;
+            color: var(--accent); letter-spacing: 1px; text-transform: uppercase; margin-top: 8px; }
+
+        .nav { padding: 16px 12px; flex: 1; }
+        .nav-section { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); padding: 8px 12px 4px; margin-top: 8px; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 10px; cursor: pointer;
+            color: var(--muted); font-size: 14px; font-weight: 500; transition: all 0.2s; margin-bottom: 2px; }
+        .nav-item:hover { background: rgba(99,102,241,0.1); color: var(--text); }
+        .nav-item.active { background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(6,182,212,0.1));
+            color: var(--primary); border: 1px solid rgba(99,102,241,0.2); }
+        .nav-item i { width: 18px; text-align: center; }
+
+        .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
+        .server-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--success); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse-green 2s infinite; }
+        @keyframes pulse-green { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); } 50% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } }
+
+        /* ── Main content ── */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .topbar { height: 64px; background: var(--surface); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 28px; }
+        .page-title { font-size: 18px; font-weight: 700; }
+        .topbar-right { display: flex; align-items: center; gap: 16px; }
+        .refresh-btn { display: flex; align-items: center; gap: 8px; background: var(--primary); color: white;
+            border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
+        .refresh-btn:hover { background: #4f46e5; transform: translateY(-1px); }
+        .logout-btn { display: flex; align-items: center; gap: 8px; background: transparent; color: var(--danger);
+            border: 1px solid var(--danger); border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
+        .logout-btn:hover { background: rgba(239,68,68,0.1); }
+
+        .content { flex: 1; overflow-y: auto; padding: 28px; }
+
+        /* ── Stats grid ── */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+            position: relative; overflow: hidden; transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+        .stat-card.blue::before { background: linear-gradient(90deg, #6366f1, #818cf8); }
+        .stat-card.green::before { background: linear-gradient(90deg, #10b981, #34d399); }
+        .stat-card.yellow::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .stat-card.red::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+        .stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 12px; }
+        .stat-card.blue .stat-icon { background: rgba(99,102,241,0.15); color: #818cf8; }
+        .stat-card.green .stat-icon { background: rgba(16,185,129,0.15); color: #34d399; }
+        .stat-card.yellow .stat-icon { background: rgba(245,158,11,0.15); color: #fbbf24; }
+        .stat-card.red .stat-icon { background: rgba(239,68,68,0.15); color: #f87171; }
+        .stat-value { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+        .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+        /* ── Sections ── */
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* ── Table card ── */
+        .table-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 24px; }
+        .table-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); }
+        .table-title { font-size: 15px; font-weight: 700; }
+        .table-actions { display: flex; gap: 10px; }
+        .search-box { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 8px; padding: 8px 14px; }
+        .search-box input { background: none; border: none; outline: none; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; width: 200px; }
+        .search-box i { color: var(--muted); font-size: 13px; }
+
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 16px; text-align: left; border-bottom: 1px solid var(--border-color); }
-        th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 14px; }
-        .score-badge { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 700; }
-        .score-good { background: rgba(76, 175, 80, 0.15); color: #4caf50; border: 1px solid rgba(76, 175, 80, 0.3); }
-        .score-avg { background: rgba(255, 152, 0, 0.15); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.3); }
-        .score-poor { background: rgba(244, 67, 54, 0.15); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); }
+        th { padding: 12px 20px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.8px; color: var(--muted); border-bottom: 1px solid var(--border); background: rgba(15,23,42,0.5); }
+        td { padding: 14px 20px; font-size: 13px; border-bottom: 1px solid rgba(51,65,85,0.5); vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(99,102,241,0.05); }
+
+        .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .badge.active { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+        .badge.inactive { background: rgba(100,116,139,0.15); color: var(--muted); border: 1px solid rgba(100,116,139,0.2); }
+        .badge.incoming { background: rgba(99,102,241,0.15); color: #818cf8; }
+        .badge.outgoing { background: rgba(6,182,212,0.15); color: #22d3ee; }
+        .badge.score-high { background: rgba(16,185,129,0.15); color: #34d399; }
+        .badge.score-mid { background: rgba(245,158,11,0.15); color: #fbbf24; }
+        .badge.score-low { background: rgba(239,68,68,0.15); color: #f87171; }
+
+        /* ── Action buttons ── */
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px;
+            font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; font-family: 'Inter', sans-serif; }
+        .btn-sm { padding: 5px 10px; font-size: 11px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-danger { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+        .btn-danger:hover { background: rgba(239,68,68,0.25); }
+        .btn-warning { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+        .btn-warning:hover { background: rgba(245,158,11,0.25); }
+        .btn-success { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+        .btn-success:hover { background: rgba(16,185,129,0.25); }
+        .btn-info { background: rgba(6,182,212,0.15); color: #22d3ee; border: 1px solid rgba(6,182,212,0.2); }
+        .btn-info:hover { background: rgba(6,182,212,0.25); }
+
+        .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+        /* ── Password reveal ── */
+        .password-cell { display: flex; align-items: center; gap: 8px; }
+        .password-text { font-family: monospace; background: var(--surface); padding: 3px 8px; border-radius: 6px; font-size: 12px; }
+        .eye-btn { background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; }
+        .eye-btn:hover { color: var(--text); }
+
+        /* ── Modal ── */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(2,8,23,0.8); backdrop-filter: blur(8px);
+            display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: var(--card); border: 1px solid var(--border); border-radius: 20px; width: 480px;
+            max-width: 95vw; overflow: hidden; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { font-size: 16px; font-weight: 700; }
+        .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; }
+        .modal-body { padding: 24px; }
+        .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+        .form-group { margin-bottom: 16px; }
+        .form-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
+        .form-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+            padding: 10px 14px; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; }
+        .form-input:focus { border-color: var(--primary); }
+
+        /* ── Toast ── */
+        .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 20px;
+            display: flex; align-items: center; gap: 12px; min-width: 280px; animation: toastIn 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        @keyframes toastIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast.success { border-left: 3px solid var(--success); }
+        .toast.error { border-left: 3px solid var(--danger); }
+        .toast.info { border-left: 3px solid var(--primary); }
+
+        /* ── Score bar ── */
+        .score-bar { display: flex; align-items: center; gap: 10px; }
+        .score-track { flex: 1; height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; }
+        .score-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+        .score-num { font-size: 12px; font-weight: 700; min-width: 28px; }
+
+        /* ── Call detail modal ── */
+        .call-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .detail-item { background: var(--surface); border-radius: 10px; padding: 12px; }
+        .detail-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .detail-value { font-size: 14px; font-weight: 600; }
+        .transcript-box { background: var(--surface); border-radius: 10px; padding: 14px; font-size: 12px;
+            line-height: 1.7; color: var(--muted); max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+
+        /* ── Empty state ── */
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+        .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+        .empty-state p { font-size: 15px; }
+
+        /* ── Loading ── */
+        .loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--muted); gap: 12px; }
+        .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--primary);
+            border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ── Login screen ── */
+        .login-screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .login-card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 40px; width: 400px; text-align: center; }
+        .login-logo { font-size: 32px; font-weight: 900; background: linear-gradient(135deg, #6366f1, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+        .login-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+        .login-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 10px; font-size: 13px; color: #f87171; margin-bottom: 16px; display: none; }
     </style>
 </head>
 <body>
 
+<!-- Login Screen -->
+<div class="login-screen" id="loginScreen">
+    <div class="login-card">
+        <div class="login-logo">⚡ Calgentic</div>
+        <p class="login-subtitle">CEO Command Center — Secure Login</p>
+        <div class="login-error" id="loginError"></div>
+        <div class="form-group" style="text-align:left">
+            <label class="form-label">Username</label>
+            <input class="form-input" id="loginUser" placeholder="admin" value="admin">
+        </div>
+        <div class="form-group" style="text-align:left">
+            <label class="form-label">Password</label>
+            <input class="form-input" type="password" id="loginPass" placeholder="••••••••" value="" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;border-radius:10px;margin-top:8px" onclick="doLogin()">
+            <i class="fas fa-shield-halved"></i> Enter Command Center
+        </button>
+    </div>
+</div>
+
+<!-- Sidebar -->
 <div class="sidebar">
-    <div class="brand">CEO Panel</div>
-    <div class="nav-item active" onclick="switchTab('tab-overview', this)">Global Overview</div>
-    <div class="nav-item" onclick="switchTab('tab-settings', this)">Settings</div>
-    <div class="logout-btn" onclick="logout()">Logout</div>
+    <div class="brand">
+        <div class="brand-logo">⚡ Calgentic</div>
+        <div class="brand-tag">AI Call Intelligence</div>
+        <div class="ceo-badge"><i class="fas fa-crown"></i> CEO Access</div>
+    </div>
+    <nav class="nav">
+        <div class="nav-section">Overview</div>
+        <div class="nav-item active" onclick="showSection('dashboard', this)">
+            <i class="fas fa-chart-line"></i> Dashboard
+        </div>
+        <div class="nav-section">Management</div>
+        <div class="nav-item" onclick="showSection('users', this)">
+            <i class="fas fa-users"></i> All Users
+        </div>
+        <div class="nav-item" onclick="showSection('calls', this)">
+            <i class="fas fa-phone-volume"></i> All Calls
+        </div>
+        <div class="nav-section">System</div>
+        <div class="nav-item" onclick="showSection('credentials', this)">
+            <i class="fas fa-key"></i> Credentials & Reset
+        </div>
+        <div class="nav-item" onclick="showSection('analytics', this)">
+            <i class="fas fa-brain"></i> AI Analytics
+        </div>
+    </nav>
+    <div class="sidebar-footer">
+        <div class="server-status">
+            <div class="status-dot"></div>
+            <span>Render Server Live</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">calgentic-api.onrender.com</div>
+    </div>
 </div>
 
+<!-- Main -->
 <div class="main">
-    <div id="tab-overview" class="tab-content">
-        <header>
-            <h2>Executive Global Dashboard</h2>
-            <p style="color:var(--text-muted)">Welcome, CEO. You have full access to all system data.</p>
-        </header>
-
-        <div class="stats-grid">
-            <div class="stat-card"><div class="stat-title">Total Registered Users</div><div class="stat-value" id="totalUsers">0</div></div>
-            <div class="stat-card"><div class="stat-title">Total Global Calls</div><div class="stat-value" id="totalCalls">0</div></div>
-            <div class="stat-card"><div class="stat-title">Platform Average Score</div><div class="stat-value" id="avgScore">0</div></div>
-        </div>
-
-        <div class="section-title">All Registered Users</div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>User ID</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Mobile Number</th>
-                    </tr>
-                </thead>
-                <tbody id="usersTableBody">
-                    <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Loading users...</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="section-title">Global Call Logs</div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date & Time</th>
-                        <th>App User</th>
-                        <th>Caller Info</th>
-                        <th>Direction</th>
-                        <th>Transcript</th>
-                        <th>AI Score</th>
-                    </tr>
-                </thead>
-                <tbody id="callsTableBody">
-                    <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Loading global calls...</td></tr>
-                </tbody>
-            </table>
+    <div class="topbar">
+        <div class="page-title" id="pageTitle">📊 Dashboard Overview</div>
+        <div class="topbar-right">
+            <button class="refresh-btn" onclick="loadCurrentSection()"><i class="fas fa-rotate-right"></i> Refresh</button>
+            <button class="logout-btn" onclick="doLogout()"><i class="fas fa-right-from-bracket"></i> Logout</button>
         </div>
     </div>
+    <div class="content">
 
-    <div id="tab-settings" class="tab-content" style="display: none;">
-        <header>
-            <h2>Platform Settings</h2>
-            <p style="color:var(--text-muted)">Manage global platform parameters.</p>
-        </header>
-        <div class="table-container">
-            <p style="color:var(--text-muted);">No settings available yet.</p>
+        <!-- Dashboard Section -->
+        <div class="section active" id="section-dashboard">
+            <div class="stats-grid" id="statsGrid">
+                <div class="loading"><div class="spinner"></div> Loading...</div>
+            </div>
+            <div class="table-card">
+                <div class="table-header">
+                    <div class="table-title">📞 Recent Calls</div>
+                </div>
+                <div id="recentCallsTable"><div class="loading"><div class="spinner"></div></div></div>
+            </div>
+        </div>
+
+        <!-- Users Section -->
+        <div class="section" id="section-users">
+            <div class="table-card">
+                <div class="table-header">
+                    <div class="table-title">👥 All Registered Users</div>
+                    <div class="table-actions">
+                        <div class="search-box"><i class="fas fa-search"></i><input type="text" id="userSearch" placeholder="Search users..." oninput="filterUsers()"></div>
+                    </div>
+                </div>
+                <div id="usersTable"><div class="loading"><div class="spinner"></div></div></div>
+            </div>
+        </div>
+
+        <!-- Calls Section -->
+        <div class="section" id="section-calls">
+            <div class="table-card">
+                <div class="table-header">
+                    <div class="table-title">📱 All Call Records</div>
+                    <div class="table-actions">
+                        <div class="search-box"><i class="fas fa-search"></i><input type="text" id="callSearch" placeholder="Search calls..." oninput="filterCalls()"></div>
+                    </div>
+                </div>
+                <div id="callsTable"><div class="loading"><div class="spinner"></div></div></div>
+            </div>
+        </div>
+
+        <!-- Credentials Section -->
+        <div class="section" id="section-credentials">
+            <div class="table-card">
+                <div class="table-header">
+                    <div class="table-title">🔑 User Credentials Manager</div>
+                    <div style="font-size:12px;color:var(--muted)">Full access to reset passwords and manage accounts</div>
+                </div>
+                <div id="credentialsTable"><div class="loading"><div class="spinner"></div></div></div>
+            </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div class="section" id="section-analytics">
+            <div class="stats-grid" id="analyticsStats">
+                <div class="loading"><div class="spinner"></div> Loading...</div>
+            </div>
+            <div class="table-card">
+                <div class="table-header"><div class="table-title">🤖 AI Score Leaderboard</div></div>
+                <div id="leaderboardTable"><div class="loading"><div class="spinner"></div></div></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal-overlay" id="resetModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">🔑 Reset Password</div>
+            <button class="modal-close" onclick="closeModal('resetModal')"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="resetUserInfo" style="background:var(--surface);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;"></div>
+            <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input class="form-input" type="text" id="newPassword" placeholder="Enter new password">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" style="background:var(--surface);color:var(--muted)" onclick="closeModal('resetModal')">Cancel</button>
+            <button class="btn btn-warning" onclick="confirmReset()"><i class="fas fa-key"></i> Reset Password</button>
         </div>
     </div>
 </div>
+
+<!-- Call Detail Modal -->
+<div class="modal-overlay" id="callModal">
+    <div class="modal" style="width:580px">
+        <div class="modal-header">
+            <div class="modal-title">📞 Call Analysis Detail</div>
+            <button class="modal-close" onclick="closeModal('callModal')"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="callModalBody" style="max-height:70vh;overflow-y:auto"></div>
+    </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal" style="width:400px">
+        <div class="modal-header">
+            <div class="modal-title" id="confirmTitle">Confirm Action</div>
+            <button class="modal-close" onclick="closeModal('confirmModal')"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body"><p id="confirmMsg" style="font-size:14px;color:var(--muted)"></p></div>
+        <div class="modal-footer">
+            <button class="btn" style="background:var(--surface);color:var(--muted)" onclick="closeModal('confirmModal')">Cancel</button>
+            <button class="btn btn-danger" id="confirmActionBtn">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
 
 <script>
-    const token = localStorage.getItem('calgentic_token');
-    const role = localStorage.getItem('calgentic_role');
+const API = 'https://calgentic-api.onrender.com';
+let adminToken = 'admin_token';
+let currentSection = 'dashboard';
+let allUsers = [], allCalls = [];
+let resetTargetUser = null;
 
-    if (!token || role !== 'CEO') {
-        window.location.href = '/login.html';
+// ── Auth ──────────────────────────────────────────────────────────────────
+function doLogin() {
+    const user = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    if (user === 'admin' && pass === 'admin123') {
+        document.getElementById('loginScreen').style.display = 'none';
+        loadDashboard();
+    } else {
+        const err = document.getElementById('loginError');
+        err.textContent = 'Invalid credentials. Use admin / admin123';
+        err.style.display = 'block';
     }
+}
 
-    function logout() {
-        localStorage.clear();
-        window.location.href = '/login.html';
-    }
+function doLogout() {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginPass').value = '';
+}
 
-    function switchTab(tabId, element) {
-        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-        element.classList.add('active');
-        
-        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-        document.getElementById(tabId).style.display = 'block';
-    }
+// ── Navigation ────────────────────────────────────────────────────────────
+function showSection(name, el) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('section-' + name).classList.add('active');
+    el.classList.add('active');
+    currentSection = name;
+    const titles = { dashboard: '📊 Dashboard Overview', users: '👥 All Users', calls: '📱 All Calls', credentials: '🔑 Credentials & Reset', analytics: '🤖 AI Analytics' };
+    document.getElementById('pageTitle').textContent = titles[name] || name;
+    loadCurrentSection();
+}
 
-    async function loadGlobalData() {
+function loadCurrentSection() {
+    if (currentSection === 'dashboard') loadDashboard();
+    else if (currentSection === 'users') loadUsers();
+    else if (currentSection === 'calls') loadCalls();
+    else if (currentSection === 'credentials') loadCredentials();
+    else if (currentSection === 'analytics') loadAnalytics();
+}
+
+// ── API calls ─────────────────────────────────────────────────────────────
+async function apiFetch(path, opts = {}) {
+    const headers = { 'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json', ...opts.headers };
+    const res = await fetch(API + path, { ...opts, headers });
+    return res.json();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+async function loadDashboard() {
+    try {
+        const [usersData, callsData] = await Promise.all([
+            apiFetch('/api/admin/users-full'),
+            apiFetch('/api/admin/calls')
+        ]);
+        allUsers = usersData; allCalls = callsData;
+        const analyzed = callsData.filter(c => c.overall_score > 0);
+        const avgScore = analyzed.length ? Math.round(analyzed.reduce((s,c) => s+c.overall_score,0)/analyzed.length) : 0;
+
+        document.getElementById('statsGrid').innerHTML = `
+            <div class="stat-card blue"><div class="stat-icon"><i class="fas fa-users"></i></div>
+                <div class="stat-value">${usersData.length}</div><div class="stat-label">Total Users</div></div>
+            <div class="stat-card green"><div class="stat-icon"><i class="fas fa-phone"></i></div>
+                <div class="stat-value">${callsData.length}</div><div class="stat-label">Total Calls</div></div>
+            <div class="stat-card yellow"><div class="stat-icon"><i class="fas fa-star"></i></div>
+                <div class="stat-value">${avgScore}</div><div class="stat-label">Avg AI Score</div></div>
+            <div class="stat-card red"><div class="stat-icon"><i class="fas fa-brain"></i></div>
+                <div class="stat-value">${analyzed.length}</div><div class="stat-label">AI Analyzed</div></div>`;
+
+        const recent = callsData.slice(0, 10);
+        document.getElementById('recentCallsTable').innerHTML = recent.length ? `
+            <table><thead><tr><th>User</th><th>Number</th><th>Type</th><th>Duration</th><th>AI Score</th><th>Time</th><th>Action</th></tr></thead>
+            <tbody>${recent.map(c => callRow(c)).join('')}</tbody></table>` : emptyState('phone', 'No calls yet');
+    } catch(e) { showToast('Error loading dashboard: ' + e.message, 'error'); }
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────
+async function loadUsers() {
+    const el = document.getElementById('usersTable');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    try {
+        allUsers = await apiFetch('/api/admin/users-full');
+        renderUsersTable(allUsers);
+    } catch(e) { el.innerHTML = emptyState('circle-exclamation', 'Failed to load users'); }
+}
+
+function renderUsersTable(users) {
+    document.getElementById('usersTable').innerHTML = users.length ? `
+        <table><thead><tr><th>#</th><th>Name</th><th>Mobile</th><th>Email</th><th>Actions</th></tr></thead>
+        <tbody>${users.map((u,i) => `
+        <tr>
+            <td style="color:var(--muted)">${i+1}</td>
+            <td><strong>${u.name||'—'}</strong></td>
+            <td><code style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:12px">${u.mobile_number}</code></td>
+            <td style="color:var(--muted)">${u.email||'—'}</td>
+            <td><div class="action-btns">
+                <button class="btn btn-info btn-sm" onclick="viewUserCalls('${u.user_id}','${u.name||u.mobile_number}')"><i class="fas fa-phone"></i> Calls</button>
+                <button class="btn btn-warning btn-sm" onclick="openReset('${u.user_id}','${u.name}','${u.mobile_number}')"><i class="fas fa-key"></i> Reset</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.user_id}','${u.name||u.mobile_number}')"><i class="fas fa-trash"></i> Delete</button>
+            </div></td>
+        </tr>`).join('')}</tbody></table>` : emptyState('users', 'No users registered');
+}
+
+function filterUsers() {
+    const q = document.getElementById('userSearch').value.toLowerCase();
+    renderUsersTable(allUsers.filter(u => (u.name||'').toLowerCase().includes(q) || u.mobile_number.includes(q) || (u.email||'').toLowerCase().includes(q)));
+}
+
+// ── Calls ─────────────────────────────────────────────────────────────────
+async function loadCalls() {
+    const el = document.getElementById('callsTable');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    try {
+        allCalls = await apiFetch('/api/admin/calls');
+        renderCallsTable(allCalls);
+    } catch(e) { el.innerHTML = emptyState('circle-exclamation', 'Failed to load calls'); }
+}
+
+function renderCallsTable(calls) {
+    document.getElementById('callsTable').innerHTML = calls.length ? `
+        <table><thead><tr><th>User</th><th>Number</th><th>Type</th><th>Duration</th><th>AI Score</th><th>Date</th><th>Action</th></tr></thead>
+        <tbody>${calls.map(c => callRow(c)).join('')}</tbody></table>` : emptyState('phone', 'No calls recorded');
+}
+
+function callRow(c) {
+    const score = c.overall_score || 0;
+    const scoreClass = score >= 70 ? 'score-high' : score >= 40 ? 'score-mid' : 'score-low';
+    const dur = c.duration ? formatDuration(c.duration) : '—';
+    const type = c.call_type === 'INCOMING' ? 'incoming' : 'outgoing';
+    return `<tr>
+        <td>${c.user_name||'Unknown'}</td>
+        <td><code style="font-size:12px">${c.caller_number||'—'}</code></td>
+        <td><span class="badge ${type}">${c.call_type||'—'}</span></td>
+        <td>${dur}</td>
+        <td>${score > 0 ? `<span class="badge ${scoreClass}">${score}/100</span>` : '<span style="color:var(--muted);font-size:12px">Analyzing...</span>'}</td>
+        <td style="color:var(--muted);font-size:12px">${new Date(c.start_time).toLocaleString('en-IN')}</td>
+        <td><button class="btn btn-info btn-sm" onclick="viewCallDetail(${JSON.stringify(c).replace(/"/g,'&quot;')})"><i class="fas fa-eye"></i> View</button></td>
+    </tr>`;
+}
+
+function filterCalls() {
+    const q = document.getElementById('callSearch').value.toLowerCase();
+    renderCallsTable(allCalls.filter(c => (c.caller_number||'').includes(q) || (c.user_name||'').toLowerCase().includes(q) || (c.call_type||'').toLowerCase().includes(q)));
+}
+
+// ── Credentials ───────────────────────────────────────────────────────────
+async function loadCredentials() {
+    const el = document.getElementById('credentialsTable');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    try {
+        allUsers = await apiFetch('/api/admin/users-full');
+        el.innerHTML = allUsers.length ? `
+            <table><thead><tr><th>Name</th><th>Mobile</th><th>Password</th><th>Email</th><th>Actions</th></tr></thead>
+            <tbody>${allUsers.map(u => `
+            <tr>
+                <td><strong>${u.name||'—'}</strong></td>
+                <td><code style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:12px">${u.mobile_number}</code></td>
+                <td>
+                    <div class="password-cell">
+                        <span class="password-text" id="pw_${u.user_id}">••••••••</span>
+                        <button class="eye-btn" onclick="togglePassword('${u.user_id}','${u.password||''}')">
+                            <i class="fas fa-eye" id="eye_${u.user_id}"></i>
+                        </button>
+                    </div>
+                </td>
+                <td style="color:var(--muted)">${u.email||'—'}</td>
+                <td><div class="action-btns">
+                    <button class="btn btn-warning btn-sm" onclick="openReset('${u.user_id}','${u.name}','${u.mobile_number}')"><i class="fas fa-key"></i> Reset Password</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.user_id}','${u.name||u.mobile_number}')"><i class="fas fa-user-slash"></i> Delete</button>
+                </div></td>
+            </tr>`).join('')}</tbody></table>` : emptyState('users', 'No users yet');
+    } catch(e) { el.innerHTML = emptyState('circle-exclamation', 'Failed to load'); }
+}
+
+function togglePassword(userId, pw) {
+    const el = document.getElementById('pw_' + userId);
+    const eye = document.getElementById('eye_' + userId);
+    if (el.textContent === '••••••••') { el.textContent = pw || '(no password)'; eye.className = 'fas fa-eye-slash'; }
+    else { el.textContent = '••••••••'; eye.className = 'fas fa-eye'; }
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────
+async function loadAnalytics() {
+    try {
+        const calls = await apiFetch('/api/admin/calls');
+        allCalls = calls;
+        const analyzed = calls.filter(c => c.overall_score > 0);
+        const avgScore = analyzed.length ? Math.round(analyzed.reduce((s,c) => s+c.overall_score,0)/analyzed.length) : 0;
+        const maxScore = analyzed.length ? Math.max(...analyzed.map(c => c.overall_score)) : 0;
+        const incoming = calls.filter(c => c.call_type === 'INCOMING').length;
+        const outgoing = calls.filter(c => c.call_type === 'OUTGOING').length;
+
+        document.getElementById('analyticsStats').innerHTML = `
+            <div class="stat-card blue"><div class="stat-icon"><i class="fas fa-chart-bar"></i></div>
+                <div class="stat-value">${avgScore}</div><div class="stat-label">Average AI Score</div></div>
+            <div class="stat-card green"><div class="stat-icon"><i class="fas fa-trophy"></i></div>
+                <div class="stat-value">${maxScore}</div><div class="stat-label">Best Call Score</div></div>
+            <div class="stat-card yellow"><div class="stat-icon"><i class="fas fa-phone-arrow-down-left"></i></div>
+                <div class="stat-value">${incoming}</div><div class="stat-label">Incoming Calls</div></div>
+            <div class="stat-card red"><div class="stat-icon"><i class="fas fa-phone-arrow-up-right"></i></div>
+                <div class="stat-value">${outgoing}</div><div class="stat-label">Outgoing Calls</div></div>`;
+
+        const sorted = [...analyzed].sort((a,b) => b.overall_score - a.overall_score).slice(0,20);
+        document.getElementById('leaderboardTable').innerHTML = sorted.length ? `
+            <table><thead><tr><th>Rank</th><th>User</th><th>Number</th><th>Score</th><th>Type</th><th>Date</th><th>Action</th></tr></thead>
+            <tbody>${sorted.map((c,i) => `<tr>
+                <td><strong style="color:${i===0?'#fbbf24':i===1?'#94a3b8':i===2?'#cd7c2f':'var(--muted)'}">#${i+1}</strong></td>
+                <td>${c.user_name||'Unknown'}</td>
+                <td><code style="font-size:12px">${c.caller_number||'—'}</code></td>
+                <td>
+                    <div class="score-bar">
+                        <div class="score-track"><div class="score-fill" style="width:${c.overall_score}%;background:${c.overall_score>=70?'var(--success)':c.overall_score>=40?'var(--warning)':'var(--danger)'}"></div></div>
+                        <span class="score-num">${c.overall_score}</span>
+                    </div>
+                </td>
+                <td><span class="badge ${c.call_type==='INCOMING'?'incoming':'outgoing'}">${c.call_type}</span></td>
+                <td style="font-size:12px;color:var(--muted)">${new Date(c.start_time).toLocaleDateString('en-IN')}</td>
+                <td><button class="btn btn-info btn-sm" onclick="viewCallDetail(${JSON.stringify(c).replace(/"/g,'&quot;')})"><i class="fas fa-eye"></i></button></td>
+            </tr>`).join('')}</tbody></table>` : emptyState('brain', 'No analyzed calls yet');
+    } catch(e) { showToast('Error loading analytics', 'error'); }
+}
+
+// ── Call detail ───────────────────────────────────────────────────────────
+function viewCallDetail(call) {
+    const scores = [
+        {label:'Overall', val:call.overall_score||0},
+        {label:'Sentiment', val:call.sentiment||0},
+        {label:'Resolution', val:0},{label:'Professionalism', val:0}
+    ];
+    document.getElementById('callModalBody').innerHTML = `
+        <div class="call-detail-grid">
+            <div class="detail-item"><div class="detail-label">Phone Number</div><div class="detail-value">${call.caller_number||'Unknown'}</div></div>
+            <div class="detail-item"><div class="detail-label">User</div><div class="detail-value">${call.user_name||'Unknown'}</div></div>
+            <div class="detail-item"><div class="detail-label">Call Type</div><div class="detail-value">${call.call_type||'—'}</div></div>
+            <div class="detail-item"><div class="detail-label">Duration</div><div class="detail-value">${formatDuration(call.duration)}</div></div>
+            <div class="detail-item"><div class="detail-label">AI Score</div><div class="detail-value" style="color:${(call.overall_score||0)>=70?'var(--success)':'var(--warning)'}">${call.overall_score||0}/100</div></div>
+            <div class="detail-item"><div class="detail-label">Date & Time</div><div class="detail-value" style="font-size:13px">${new Date(call.start_time).toLocaleString('en-IN')}</div></div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:600">Transcript</div>
+        <div class="transcript-box">${call.transcript||'No transcript available'}</div>`;
+    document.getElementById('callModal').classList.add('show');
+}
+
+async function viewUserCalls(userId, name) {
+    showToast('Loading calls for ' + name + '...', 'info');
+    try {
+        const calls = await apiFetch('/api/calls/' + userId);
+        if (!calls.length) { showToast('No calls found for this user', 'info'); return; }
+        allCalls = calls.map(c => ({...c, user_name: name}));
+        showSection('calls', document.querySelectorAll('.nav-item')[2]);
+        renderCallsTable(allCalls);
+    } catch(e) { showToast('Failed to load user calls', 'error'); }
+}
+
+// ── Reset password ────────────────────────────────────────────────────────
+function openReset(userId, name, mobile) {
+    resetTargetUser = { userId, name, mobile };
+    document.getElementById('resetUserInfo').innerHTML = `
+        <div style="display:flex;gap:16px">
+            <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">User</div><div style="font-weight:600">${name||'Unknown'}</div></div>
+            <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Mobile</div><div style="font-weight:600">${mobile}</div></div>
+        </div>`;
+    document.getElementById('newPassword').value = '';
+    document.getElementById('resetModal').classList.add('show');
+}
+
+async function confirmReset() {
+    const newPw = document.getElementById('newPassword').value.trim();
+    if (!newPw || newPw.length < 4) { showToast('Password must be at least 4 characters', 'error'); return; }
+    try {
+        const res = await apiFetch('/api/admin/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({ user_id: resetTargetUser.userId, new_password: newPw })
+        });
+        if (res.success) {
+            showToast(`✅ Password reset for ${resetTargetUser.name||resetTargetUser.mobile}`, 'success');
+            closeModal('resetModal');
+            loadCurrentSection();
+        } else { showToast(res.error || 'Reset failed', 'error'); }
+    } catch(e) { showToast('Network error', 'error'); }
+}
+
+// ── Delete user ───────────────────────────────────────────────────────────
+function deleteUser(userId, name) {
+    document.getElementById('confirmTitle').textContent = '⚠️ Delete User';
+    document.getElementById('confirmMsg').textContent = `Are you sure you want to permanently delete "${name}"? All their calls will also be removed.`;
+    document.getElementById('confirmActionBtn').onclick = async () => {
         try {
-            // Load Users
-            const usersRes = await fetch('/api/admin/users', { headers: { 'Authorization': 'Bearer ' + token } });
-            if (usersRes.status === 401 || usersRes.status === 403) return logout();
-            const users = await usersRes.json();
-            
-            document.getElementById('totalUsers').innerText = users.length;
-            
-            let usersHtml = '';
-            users.forEach(u => {
-                usersHtml += `
-                    <tr>
-                        <td><small style="color:var(--text-muted)">${u.user_id}</small></td>
-                        <td><strong>${u.name}</strong></td>
-                        <td>${u.email}</td>
-                        <td>${u.mobile_number}</td>
-                    </tr>
-                `;
+            const res = await apiFetch('/api/admin/delete-user', {
+                method: 'DELETE',
+                body: JSON.stringify({ user_id: userId })
             });
-            document.getElementById('usersTableBody').innerHTML = usersHtml || '<tr><td colspan="4">No users found.</td></tr>';
+            if (res.success) { showToast('User deleted', 'success'); closeModal('confirmModal'); loadCurrentSection(); }
+            else { showToast(res.error || 'Delete failed', 'error'); }
+        } catch(e) { showToast('Network error', 'error'); }
+    };
+    document.getElementById('confirmModal').classList.add('show');
+}
 
-            // Load Calls
-            const callsRes = await fetch('/api/admin/calls', { headers: { 'Authorization': 'Bearer ' + token } });
-            const calls = await callsRes.json();
-            
-            document.getElementById('totalCalls').innerText = calls.length;
-            
-            if (calls.length > 0) {
-                const totalScore = calls.reduce((acc, call) => acc + (call.overall_score || 0), 0);
-                document.getElementById('avgScore').innerText = Math.round(totalScore / calls.length);
-            }
+// ── Helpers ───────────────────────────────────────────────────────────────
+function formatDuration(ms) {
+    if (!ms) return '—';
+    const s = Math.floor(ms/1000), m = Math.floor(s/60);
+    return m > 0 ? `${m}m ${s%60}s` : `${s}s`;
+}
 
-            let callsHtml = '';
-            calls.forEach(call => {
-                const date = new Date(call.start_time).toLocaleString();
-                const score = call.overall_score || 0;
-                let badgeClass = 'score-good';
-                if (score < 50) badgeClass = 'score-poor';
-                else if (score < 80) badgeClass = 'score-avg';
+function emptyState(icon, msg) {
+    return `<div class="empty-state"><i class="fas fa-${icon}"></i><p>${msg}</p></div>`;
+}
 
-                callsHtml += `
-                    <tr>
-                        <td>${date}</td>
-                        <td><strong>${call.user_name || 'Unknown'}</strong><br><small style="color:var(--text-muted)">${call.mobile_number || 'N/A'}</small></td>
-                        <td><strong>${call.caller_name || 'Unknown'}</strong><br><small style="color:var(--text-muted)">${call.caller_number}</small></td>
-                        <td>${call.call_type}</td>
-                        <td style="max-width:250px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${call.transcript}">${call.transcript || 'N/A'}</td>
-                        <td><span class="score-badge ${badgeClass}">${score}</span></td>
-                    </tr>
-                `;
-            });
-            document.getElementById('callsTableBody').innerHTML = callsHtml || '<tr><td colspan="6">No calls found.</td></tr>';
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
-        } catch (e) {
-            console.error(e);
-        }
-    }
-    loadGlobalData();
+function showToast(msg, type = 'info') {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<i class="fas fa-${type==='success'?'circle-check':type==='error'?'circle-exclamation':'circle-info'}"></i><span>${msg}</span>`;
+    document.getElementById('toastContainer').appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
+
+// Auto-load
+window.onload = () => {};
 </script>
 </body>
 </html>

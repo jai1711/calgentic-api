@@ -520,14 +520,26 @@ function renderCallsTable(calls) {
         <tbody>${calls.map(c => callRow(c)).join('')}</tbody></table>` : emptyState('phone', 'No calls recorded');
 }
 
+function formatCallNumber(num, callType) {
+    if (!num || num === '0' || /^0+$/.test(num) || num === 'Unknown' || num === 'null') {
+        return callType === 'INCOMING' ? '📲 Incoming' : '📤 Outgoing';
+    }
+    // Format Indian number +91XXXXXXXXXX → +91 XXXXX XXXXX
+    const clean = num.replace(/\D/g, '');
+    if (clean.length === 10) return `+91 ${clean.slice(0,5)} ${clean.slice(5)}`;
+    if (clean.length === 12 && clean.startsWith('91')) return `+${clean.slice(0,2)} ${clean.slice(2,7)} ${clean.slice(7)}`;
+    return num;
+}
+
 function callRow(c) {
     const score = c.overall_score || 0;
     const scoreClass = score >= 70 ? 'score-high' : score >= 40 ? 'score-mid' : 'score-low';
     const dur = c.duration ? formatDuration(c.duration) : '—';
     const type = c.call_type === 'INCOMING' ? 'incoming' : 'outgoing';
+    const displayNum = formatCallNumber(c.caller_number, c.call_type);
     return `<tr>
-        <td>${c.user_name||'Unknown'}</td>
-        <td><code style="font-size:12px">${c.caller_number||'—'}</code></td>
+        <td><strong>${c.user_name||'—'}</strong><br><span style="color:var(--muted);font-size:11px">${c.mobile_number||''}</span></td>
+        <td><code style="font-size:12px;background:var(--surface);padding:2px 8px;border-radius:4px">${displayNum}</code></td>
         <td><span class="badge ${type}">${c.call_type||'—'}</span></td>
         <td>${dur}</td>
         <td>${score > 0 ? `<span class="badge ${scoreClass}">${score}/100</span>` : '<span style="color:var(--muted);font-size:12px">Analyzing...</span>'}</td>
@@ -604,7 +616,7 @@ async function loadAnalytics() {
             <tbody>${sorted.map((c,i) => `<tr>
                 <td><strong style="color:${i===0?'#fbbf24':i===1?'#94a3b8':i===2?'#cd7c2f':'var(--muted)'}">#${i+1}</strong></td>
                 <td>${c.user_name||'Unknown'}</td>
-                <td><code style="font-size:12px">${c.caller_number||'—'}</code></td>
+                <td><code style="font-size:12px">${formatCallNumber(c.caller_number, c.call_type)}</code></td>
                 <td>
                     <div class="score-bar">
                         <div class="score-track"><div class="score-fill" style="width:${c.overall_score}%;background:${c.overall_score>=70?'var(--success)':c.overall_score>=40?'var(--warning)':'var(--danger)'}"></div></div>

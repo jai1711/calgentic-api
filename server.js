@@ -16,6 +16,11 @@ const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 // Multer storage — saves audio uploads to /uploads folder
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+// Permanent recordings directory (served statically for playback)
+const recordingsDir = path.join(__dirname, 'public', 'recordings');
+if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir, { recursive: true });
+
 const upload = multer({
     dest: uploadsDir,
     limits: { fileSize: 50 * 1024 * 1024 } // 50MB max
@@ -67,8 +72,35 @@ db.serialize(() => {
         duration INTEGER,
         sentiment TEXT,
         overall_score INTEGER,
-        transcript TEXT
+        transcript TEXT,
+        resolution_score INTEGER,
+        professionalism_score INTEGER,
+        clarity_score INTEGER,
+        customer_satisfaction_score INTEGER,
+        efficiency_score INTEGER,
+        recommendations TEXT,
+        key_moments TEXT,
+        audio_url TEXT,
+        summary TEXT
     )`);
+
+    // Auto-migrate schema for extra columns if table already existed
+    const columns = [
+        'resolution_score INTEGER',
+        'professionalism_score INTEGER',
+        'clarity_score INTEGER',
+        'customer_satisfaction_score INTEGER',
+        'efficiency_score INTEGER',
+        'recommendations TEXT',
+        'key_moments TEXT',
+        'audio_url TEXT',
+        'summary TEXT'
+    ];
+    columns.forEach(col => {
+        db.run(`ALTER TABLE calls ADD COLUMN ${col}`, (err) => {
+            // Ignore error if column already exists
+        });
+    });
 });
 
 // API Routes
@@ -163,8 +195,21 @@ app.post('/api/analyze-call', upload.single('audio'), async (req, res) => {
         const jsonText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
         const analysis = JSON.parse(jsonText);
 
-        // Clean up uploaded file
-        fs.unlinkSync(audioFile.path);
+        // Save audio permanently to public/recordings/ for playback
+        let audioUrl = null;
+        try {
+            const ext2 = (audioFile.originalname || 'recording.m4a').split('.').pop() || 'm4a';
+            const permanentName = `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext2}`;
+            const permanentPath = path.join(recordingsDir, permanentName);
+            fs.copyFileSync(audioFile.path, permanentPath);
+            audioUrl = `/recordings/${permanentName}`;
+            console.log(`[Gemini] Audio saved permanently: ${audioUrl}`);
+        } catch (saveErr) {
+            console.warn('[Gemini] Could not save permanent audio:', saveErr.message);
+        }
+
+        // Clean up temp upload
+        try { fs.unlinkSync(audioFile.path); } catch(e) {}
 
         console.log(`[Gemini] Analysis complete. Overall score: ${analysis.scores?.overall}, Language: ${analysis.language}`);
 
@@ -184,7 +229,8 @@ app.post('/api/analyze-call', upload.single('audio'), async (req, res) => {
                 efficiency: analysis.scores?.efficiency || 50
             },
             keyMoments: analysis.keyMoments || [],
-            recommendations: analysis.recommendations || []
+            recommendations: analysis.recommendations || [],
+            audioUrl: audioUrl
         });
 
     } catch (err) {
@@ -417,8 +463,9 @@ app.post('/api/sync', checkAuth, (req, res) => {
     if (!user_id || !calls) return res.status(400).json({ error: 'Invalid data' });
     
     const stmt = db.prepare(`INSERT OR REPLACE INTO calls 
-        (id, user_id, caller_name, caller_number, call_type, category, start_time, duration, sentiment, overall_score, transcript) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+        (id, user_id, caller_name, caller_number, call_type, category, start_time, duration, sentiment, overall_score, transcript,
+         resolution_score, professionalism_score, clarity_score, customer_satisfaction_score, efficiency_score, recommendations, key_moments, audio_url, summary) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
         
     calls.forEach(call => {
         stmt.run([
@@ -432,7 +479,16 @@ app.post('/api/sync', checkAuth, (req, res) => {
             call.duration,
             call.score?.sentimentScore || '',
             call.score?.overallScore || 0,
-            call.transcript || ''
+            call.transcript || '',
+            call.score?.resolutionScore || 0,
+            call.score?.professionalismScore || 0,
+            call.score?.clarityScore || 0,
+            call.score?.customerSatisfactionScore || 0,
+            call.score?.efficiencyScore || 0,
+            (Array.isArray(call.score?.recommendations) ? call.score.recommendations.join('|') : ''),
+            (Array.isArray(call.score?.keyMoments) ? call.score.keyMoments.join('|') : ''),
+            call.audioUrl || call.audio_url || null,
+            call.score?.summary || ''
         ]);
     });
     stmt.finalize();

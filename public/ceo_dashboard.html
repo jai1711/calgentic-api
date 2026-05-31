@@ -632,22 +632,202 @@ async function loadAnalytics() {
 
 // ── Call detail ───────────────────────────────────────────────────────────
 function viewCallDetail(call) {
-    const scores = [
-        {label:'Overall', val:call.overall_score||0},
-        {label:'Sentiment', val:call.sentiment||0},
-        {label:'Resolution', val:0},{label:'Professionalism', val:0}
-    ];
-    document.getElementById('callModalBody').innerHTML = `
-        <div class="call-detail-grid">
-            <div class="detail-item"><div class="detail-label">Phone Number</div><div class="detail-value">${call.caller_number||'Unknown'}</div></div>
-            <div class="detail-item"><div class="detail-label">User</div><div class="detail-value">${call.user_name||'Unknown'}</div></div>
-            <div class="detail-item"><div class="detail-label">Call Type</div><div class="detail-value">${call.call_type||'—'}</div></div>
-            <div class="detail-item"><div class="detail-label">Duration</div><div class="detail-value">${formatDuration(call.duration)}</div></div>
-            <div class="detail-item"><div class="detail-label">AI Score</div><div class="detail-value" style="color:${(call.overall_score||0)>=70?'var(--success)':'var(--warning)'}">${call.overall_score||0}/100</div></div>
-            <div class="detail-item"><div class="detail-label">Date & Time</div><div class="detail-value" style="font-size:13px">${new Date(call.start_time).toLocaleString('en-IN')}</div></div>
+    const overall = call.overall_score || 0;
+    const sentiment = call.sentiment || 'Neutral';
+    const resolution = call.resolution_score || 0;
+    const professionalism = call.professionalism_score || 0;
+    const clarity = call.clarity_score || 0;
+    const csat = call.customer_satisfaction_score || 0;
+    const efficiency = call.efficiency_score || 0;
+
+    const recommendations = (call.recommendations || '').split('|').filter(r => r.trim().length > 0);
+    const keyMoments = (call.key_moments || '').split('|').filter(k => k.trim().length > 0);
+
+    const scoreColor = (score) => score >= 70 ? 'var(--success)' : score >= 40 ? 'var(--warning)' : 'var(--danger)';
+
+    const metricBar = (label, value, weight) => `
+        <div style="margin-bottom: 10px;">
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+                <span style="font-weight:500; color:var(--text);">${label} ${weight ? `<span style="color:var(--muted);font-size:10px;font-weight:400;">(${weight})</span>` : ''}</span>
+                <span style="font-weight:700; color:${scoreColor(value)};">${value}/100</span>
+            </div>
+            <div class="score-track" style="height:6px; background:var(--border); border-radius:3px;">
+                <div class="score-fill" style="width:${value}%; height:100%; border-radius:3px; background:${scoreColor(value)};"></div>
+            </div>
         </div>
-        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:600">Transcript</div>
-        <div class="transcript-box">${call.transcript||'No transcript available'}</div>`;
+    `;
+
+    // Calculate weighted score breakdown
+    const calcOverall = Math.round(resolution * 0.30 + csat * 0.25 + professionalism * 0.20 + clarity * 0.15 + efficiency * 0.10);
+
+    // Build audio player HTML
+    const audioPlayerHtml = call.audio_url ? `
+        <div style="background:linear-gradient(135deg, rgba(99,102,241,0.1), rgba(6,182,212,0.1)); border:1px solid rgba(99,102,241,0.2); border-radius:12px; padding:16px; margin-bottom:20px;">
+            <div style="font-size:12px; color:var(--primary); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:10px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-headphones"></i> Call Recording Playback
+            </div>
+            <audio controls style="width:100%; height:40px; border-radius:8px; outline:none;" preload="metadata">
+                <source src="${API}${call.audio_url}" type="audio/mp4">
+                <source src="${API}${call.audio_url}" type="audio/mpeg">
+                Your browser does not support the audio element.
+            </audio>
+            <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--muted);">
+                <span><i class="fas fa-file-audio"></i> ${call.audio_url.split('/').pop()}</span>
+                <a href="${API}${call.audio_url}" download style="color:var(--cyan); text-decoration:none; font-weight:600;">
+                    <i class="fas fa-download"></i> Download
+                </a>
+            </div>
+        </div>
+    ` : `
+        <div style="background:rgba(245,158,11,0.05); border:1px solid rgba(245,158,11,0.15); border-radius:12px; padding:14px; margin-bottom:20px; display:flex; align-items:center; gap:10px;">
+            <i class="fas fa-microphone-slash" style="color:var(--warning); font-size:16px;"></i>
+            <div>
+                <div style="font-size:13px; font-weight:600; color:var(--warning);">No Audio Recording</div>
+                <div style="font-size:11px; color:var(--muted);">Audio was not captured for this call. AI scored from call metadata.</div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('callModalBody').innerHTML = `
+        <div class="call-detail-grid" style="grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
+            <div class="detail-item"><div class="detail-label">Phone Number</div><div class="detail-value" style="font-size:13px;">${call.caller_number||'Unknown'}</div></div>
+            <div class="detail-item"><div class="detail-label">Agent</div><div class="detail-value" style="font-size:13px;">${call.user_name||'Unknown'}</div></div>
+            <div class="detail-item"><div class="detail-label">Call Type</div><div class="detail-value"><span class="badge ${call.call_type==='INCOMING'?'incoming':'outgoing'}" style="font-size:10px; padding:2px 6px;">${call.call_type||'—'}</span></div></div>
+            <div class="detail-item"><div class="detail-label">Duration</div><div class="detail-value" style="font-size:13px;">${formatDuration(call.duration)}</div></div>
+            <div class="detail-item"><div class="detail-label">Category</div><div class="detail-value" style="font-size:13px; font-weight:700; color:var(--cyan);">${call.category||'GENERAL'}</div></div>
+            <div class="detail-item"><div class="detail-label">Date & Time</div><div class="detail-value" style="font-size:11px; color:var(--text);">${new Date(call.start_time).toLocaleString('en-IN')}</div></div>
+        </div>
+
+        ${audioPlayerHtml}
+
+        <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:20px;">
+            <div style="font-size:12px; color:var(--cyan); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:12px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-brain"></i> Gemini Call Intelligence Scores
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                <div>
+                    ${metricBar('Overall Score', overall)}
+                    ${metricBar('Resolution Outcome', resolution, '30%')}
+                    ${metricBar('Agent Professionalism', professionalism, '20%')}
+                </div>
+                <div>
+                    ${metricBar('Communication Clarity', clarity, '15%')}
+                    ${metricBar('Customer Satisfaction', csat, '25%')}
+                    ${metricBar('Time Efficiency', efficiency, '10%')}
+                </div>
+            </div>
+            <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; font-size:12px;">
+                <span style="color:var(--muted)">Customer Sentiment:</span>
+                <span class="badge" style="background:${sentiment.toLowerCase().includes('delight') || sentiment.toLowerCase().includes('posit') ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}; color:${sentiment.toLowerCase().includes('delight') || sentiment.toLowerCase().includes('posit') ? '#34d399' : '#fbbf24'}">${sentiment}</span>
+            </div>
+        </div>
+
+        <div style="background:linear-gradient(135deg, rgba(245,158,11,0.05), rgba(239,68,68,0.05)); border:1px solid rgba(245,158,11,0.15); border-radius:12px; padding:16px; margin-bottom:20px;">
+            <div style="font-size:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:12px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-scale-balanced"></i> AI Scoring Methodology & Weightage
+            </div>
+            <div style="font-size:12px; color:var(--muted); margin-bottom:12px; line-height:1.5;">
+                The Overall Score is a weighted composite calculated by Gemini AI using the formula:
+            </div>
+            <div style="background:var(--surface); border-radius:8px; padding:12px; margin-bottom:12px; font-family:monospace; font-size:12px; color:var(--text); line-height:1.8;">
+                <div style="color:var(--cyan); margin-bottom:6px; font-weight:700;">Overall = Σ (Metric × Weight)</div>
+                <div>Resolution × <span style="color:#34d399; font-weight:700;">0.30</span> = ${resolution} × 0.30 = <span style="font-weight:700;">${(resolution * 0.30).toFixed(1)}</span></div>
+                <div>Satisfaction × <span style="color:#34d399; font-weight:700;">0.25</span> = ${csat} × 0.25 = <span style="font-weight:700;">${(csat * 0.25).toFixed(1)}</span></div>
+                <div>Professionalism × <span style="color:#34d399; font-weight:700;">0.20</span> = ${professionalism} × 0.20 = <span style="font-weight:700;">${(professionalism * 0.20).toFixed(1)}</span></div>
+                <div>Clarity × <span style="color:#34d399; font-weight:700;">0.15</span> = ${clarity} × 0.15 = <span style="font-weight:700;">${(clarity * 0.15).toFixed(1)}</span></div>
+                <div>Efficiency × <span style="color:#34d399; font-weight:700;">0.10</span> = ${efficiency} × 0.10 = <span style="font-weight:700;">${(efficiency * 0.10).toFixed(1)}</span></div>
+                <div style="border-top:1px solid var(--border); margin-top:8px; padding-top:8px; font-weight:700; color:var(--accent);">
+                    Weighted Total = ${calcOverall}/100 ${overall !== calcOverall ? `<span style="color:var(--muted); font-weight:400;">(AI reported: ${overall})</span>` : ''}
+                </div>
+            </div>
+            <table style="width:100%; font-size:11px; border-collapse:collapse;">
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:6px 0; color:var(--muted);">Metric</td>
+                    <td style="padding:6px 0; color:var(--muted); text-align:center;">Weight</td>
+                    <td style="padding:6px 0; color:var(--muted); text-align:center;">Score</td>
+                    <td style="padding:6px 0; color:var(--muted); text-align:right;">Contribution</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <td style="padding:5px 0; color:var(--text); font-weight:500;">🎯 Resolution Outcome</td>
+                    <td style="padding:5px 0; text-align:center; color:#34d399; font-weight:700;">30%</td>
+                    <td style="padding:5px 0; text-align:center; color:var(--text);">${resolution}</td>
+                    <td style="padding:5px 0; text-align:right; font-weight:600; color:${scoreColor(resolution)};">${(resolution * 0.30).toFixed(1)}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <td style="padding:5px 0; color:var(--text); font-weight:500;">😊 Customer Satisfaction</td>
+                    <td style="padding:5px 0; text-align:center; color:#34d399; font-weight:700;">25%</td>
+                    <td style="padding:5px 0; text-align:center; color:var(--text);">${csat}</td>
+                    <td style="padding:5px 0; text-align:right; font-weight:600; color:${scoreColor(csat)};">${(csat * 0.25).toFixed(1)}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <td style="padding:5px 0; color:var(--text); font-weight:500;">👔 Agent Professionalism</td>
+                    <td style="padding:5px 0; text-align:center; color:#34d399; font-weight:700;">20%</td>
+                    <td style="padding:5px 0; text-align:center; color:var(--text);">${professionalism}</td>
+                    <td style="padding:5px 0; text-align:right; font-weight:600; color:${scoreColor(professionalism)};">${(professionalism * 0.20).toFixed(1)}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <td style="padding:5px 0; color:var(--text); font-weight:500;">🗣️ Communication Clarity</td>
+                    <td style="padding:5px 0; text-align:center; color:#34d399; font-weight:700;">15%</td>
+                    <td style="padding:5px 0; text-align:center; color:var(--text);">${clarity}</td>
+                    <td style="padding:5px 0; text-align:right; font-weight:600; color:${scoreColor(clarity)};">${(clarity * 0.15).toFixed(1)}</td>
+                </tr>
+                <tr>
+                    <td style="padding:5px 0; color:var(--text); font-weight:500;">⚡ Time Efficiency</td>
+                    <td style="padding:5px 0; text-align:center; color:#34d399; font-weight:700;">10%</td>
+                    <td style="padding:5px 0; text-align:center; color:var(--text);">${efficiency}</td>
+                    <td style="padding:5px 0; text-align:right; font-weight:600; color:${scoreColor(efficiency)};">${(efficiency * 0.10).toFixed(1)}</td>
+                </tr>
+            </table>
+        </div>
+
+        ${recommendations.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+            <div style="font-size:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-lightbulb"></i> Actionable Coaching Recommendations
+            </div>
+            <ul style="padding-left:18px; font-size:13px; color:var(--muted); line-height:1.6;">
+                ${recommendations.map(r => `<li style="margin-bottom:4px;">${r}</li>`).join('')}
+            </ul>
+        </div>
+        ` : ''}
+
+        ${keyMoments.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+            <div style="font-size:12px; color:var(--cyan); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-history"></i> Key Conversation Moments
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; padding-left:4px;">
+                ${keyMoments.map(km => {
+                    const parts = km.split(' — ');
+                    const time = parts[0] || '';
+                    const desc = parts[1] || km;
+                    return `
+                        <div style="display:flex; gap:10px; font-size:13px;">
+                            <span style="color:var(--cyan); font-weight:700; font-family:monospace; min-width:45px;">${time}</span>
+                            <span style="color:var(--muted);">${desc}</span>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+        ` : ''}
+
+        ${call.summary ? `
+        <div style="margin-bottom: 20px;">
+            <div style="font-size:12px; color:var(--success); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-file-lines"></i> AI Summary
+            </div>
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px; font-size:13px; color:var(--muted); line-height:1.6;">${call.summary}</div>
+        </div>
+        ` : ''}
+
+        <div style="margin-bottom: 10px;">
+            <div style="font-size:12px; color:var(--primary); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-quote-left"></i> Call Transcript
+            </div>
+            <div class="transcript-box" style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; font-size:12px; line-height:1.7; color:var(--muted); max-height:220px; overflow-y:auto; white-space:pre-wrap;">${call.transcript||'No transcript available'}</div>
+        </div>
+    `;
     document.getElementById('callModal').classList.add('show');
 }
 

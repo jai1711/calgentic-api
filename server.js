@@ -31,6 +31,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`, req.body);
     next();
@@ -337,6 +338,210 @@ IMPORTANT: Make the scores realistic and different from call to call based on th
             recommendations: ['Enable speakerphone for better AI transcription', 'Ensure WiFi is active after calls']
         });
     }
+});
+
+// ============ Twilio VoIP Endpoints ============
+
+app.post('/api/twilio-token', (req, res) => {
+    const { mobile_number } = req.body;
+    if (!mobile_number) {
+        return res.status(400).json({ success: false, error: 'Mobile number is required' });
+    }
+
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const apiKeySid = process.env.TWILIO_API_KEY_SID;
+    const apiSecret = process.env.TWILIO_API_SECRET;
+    const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;
+
+    if (!accountSid || !apiKeySid || !apiSecret || !twimlAppSid) {
+        console.error('[Twilio] Missing credentials in environment');
+        return res.status(500).json({
+            success: false,
+            error: 'Twilio credentials not configured on the server. Please set TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_SECRET, and TWILIO_TWIML_APP_SID.'
+        });
+    }
+
+    try {
+        const twilio = require('twilio');
+        const AccessToken = twilio.jwt.AccessToken;
+        const VoiceGrant = AccessToken.VoiceGrant;
+
+        const token = new AccessToken(accountSid, apiKeySid, apiSecret, {
+            identity: mobile_number,
+            ttl: 3600 // 1 hour
+        });
+
+        const voiceGrant = new VoiceGrant({
+            outgoingApplicationSid: twimlAppSid,
+            incomingAllow: true
+        });
+        token.addGrant(voiceGrant);
+
+        const jwt = token.toJwt();
+        console.log(`[Twilio] Generated voice token for ${mobile_number}`);
+        res.json({ success: true, token: jwt });
+    } catch (err) {
+        console.error('[Twilio] Error generating token:', err.message);
+        res.status(500).json({ success: false, error: `Failed to generate token: ${err.message}` });
+    }
+});
+
+app.post('/api/twilio-voice', (req, res) => {
+    const to = req.body.to || req.query.to || req.body.To || req.query.To;
+    console.log('[Twilio Voice] Incoming call connection request to:', to);
+
+    const callerId = process.env.TWILIO_CALLER_ID;
+    if (!callerId) {
+        console.error('[Twilio Voice] TWILIO_CALLER_ID not set');
+    }
+
+    const twilio = require('twilio');
+    const VoiceResponse = twilio.twiml.VoiceResponse;
+    const response = new VoiceResponse();
+
+    if (to) {
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.headers['x-forwarded-host'] || req.get('host');
+        const recordingStatusCallback = `${protocol}://${host}/api/twilio-recording-callback`;
+
+        const dial = response.dial({
+            callerId: callerId,
+            record: 'record-from-answer-dual',
+            recordingStatusCallback: recordingStatusCallback
+        });
+        dial.number(to);
+    } else {
+        response.say('Error: No destination number specified.');
+    }
+
+    res.type('text/xml');
+    res.send(response.toString());
+});
+
+app.post('/api/twilio-recording-callback', async (req, res) => {
+    const { RecordingUrl, CallSid, RecordingDuration, From, To } = req.body;
+    console.log(`[Twilio Callback] Recording received for CallSid: ${CallSid}, URL: ${RecordingUrl}`);
+
+    if (!RecordingUrl) {
+        return res.status(400).json({ success: false, error: 'No RecordingUrl provided' });
+    }
+
+    res.json({ success: true, message: 'Processing recording in background' });
+
+    (async () => {
+        try {
+            const accountSid = process.env.TWILIO_ACCOUNT_SID;
+            const authToken = process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_API_SECRET;
+            
+            if (!accountSid || !authToken) {
+                console.error('[Twilio Callback] Missing TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN');
+                return;
+            }
+
+            const downloadUrl = RecordingUrl.endsWith('.mp3') ? RecordingUrl : `${RecordingUrl}.mp3`;
+            const authHeader = 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+            
+            console.log(`[Twilio Callback] Downloading audio from: ${downloadUrl}`);
+            const response = await fetch(downloadUrl, {
+                headers: { 'Authorization': authHeader }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to download recording from Twilio: ${response.status} ${response.statusText}`);
+            }
+
+            const buffer = Buffer.from(await response.arrayBuffer());
+            const tempFileName = `twilio_${CallSid || Date.now()}.mp3`;
+            const tempFilePath = path.join(uploadsDir, tempFileName);
+            fs.writeFileSync(tempFilePath, buffer);
+            console.log(`[Twilio Callback] Temp audio saved to: ${tempFilePath}`);
+
+            const cleanFrom = (From || '').replace(/^client:/, '').trim();
+            const cleanTo = (To || '').trim();
+
+            console.log(`[Twilio Callback] Call details: From=${cleanFrom}, To=${cleanTo}`);
+
+            db.get(`SELECT user_id, name FROM users WHERE mobile_number = ?`, [cleanFrom], async (err, userRow) => {
+                let userId = null;
+                let userName = 'Unknown VoIP Caller';
+                if (err) {
+                    console.error('[Twilio Callback] Database error finding user:', err.message);
+                } else if (userRow) {
+                    userId = userRow.user_id;
+                    userName = userRow.name;
+                    console.log(`[Twilio Callback] Call associated with User ID: ${userId} (${userName})`);
+                } else {
+                    console.warn(`[Twilio Callback] No user found with mobile: ${cleanFrom}`);
+                }
+
+                try {
+                    console.log(`[Twilio Callback] Running Gemini AI analysis...`);
+                    const base64Audio = buffer.toString('base64');
+                    const aiResult = await geminiModel.generateContent([
+                        { inlineData: { mimeType: 'audio/mpeg', data: base64Audio } },
+                        GEMINI_ANALYSIS_PROMPT
+                    ]);
+
+                    const rawText = aiResult.response.text().trim();
+                    const jsonText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+                    const analysis = JSON.parse(jsonText);
+
+                    const permanentName = `call_${Date.now()}_${CallSid || Math.random().toString(36).slice(2, 8)}.mp3`;
+                    const permanentPath = path.join(recordingsDir, permanentName);
+                    fs.copyFileSync(tempFilePath, permanentPath);
+                    const audioUrl = `/recordings/${permanentName}`;
+                    console.log(`[Twilio Callback] Audio saved permanently to: ${audioUrl}`);
+
+                    try { fs.unlinkSync(tempFilePath); } catch (e) {}
+
+                    const callId = CallSid || uuidv4();
+                    const durationMs = (parseInt(RecordingDuration) || 0) * 1000;
+                    
+                    db.run(`INSERT OR REPLACE INTO calls 
+                        (id, user_id, caller_name, caller_number, call_type, category, start_time, duration, sentiment, overall_score, transcript,
+                         resolution_score, professionalism_score, clarity_score, customer_satisfaction_score, efficiency_score, recommendations, key_moments, audio_url, summary)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            callId,
+                            userId,
+                            userName,
+                            cleanTo,
+                            'OUTGOING',
+                            analysis.callCategory || 'GENERAL',
+                            Date.now(),
+                            durationMs,
+                            analysis.scores?.sentiment || '50',
+                            analysis.scores?.overall || 50,
+                            analysis.transcript || '',
+                            analysis.scores?.resolution || 50,
+                            analysis.scores?.professionalism || 50,
+                            analysis.scores?.clarity || 50,
+                            analysis.scores?.customerSatisfaction || 50,
+                            analysis.scores?.efficiency || 50,
+                            (analysis.recommendations || []).join('|'),
+                            (analysis.keyMoments || []).join('|'),
+                            audioUrl,
+                            analysis.callSummary || ''
+                        ],
+                        (insertErr) => {
+                            if (insertErr) {
+                                console.error('[Twilio Callback] Failed to insert call record:', insertErr.message);
+                            } else {
+                                console.log(`[Twilio Callback] Call record successfully saved to database: ${callId}`);
+                            }
+                        }
+                    );
+
+                } catch (aiErr) {
+                    console.error('[Twilio Callback] AI Analysis or saving failed:', aiErr.message);
+                    try { fs.unlinkSync(tempFilePath); } catch (e) {}
+                }
+            });
+
+        } catch (downloadErr) {
+            console.error('[Twilio Callback] Failed to process webhook:', downloadErr.message);
+        }
+    })();
 });
 
 // ============ OTP Endpoints ============

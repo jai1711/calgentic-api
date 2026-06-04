@@ -368,7 +368,8 @@ app.post('/api/twilio-token', (req, res) => {
 
         const token = new AccessToken(accountSid, apiKeySid, apiSecret, {
             identity: mobile_number,
-            ttl: 3600 // 1 hour
+            ttl: 3600, // 1 hour
+            region: 'us1'
         });
 
         const voiceGrant = new VoiceGrant({

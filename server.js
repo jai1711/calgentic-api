@@ -348,10 +348,10 @@ app.post('/api/twilio-token', (req, res) => {
         return res.status(400).json({ success: false, error: 'Mobile number is required' });
     }
 
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const apiKeySid = process.env.TWILIO_API_KEY_SID;
-    const apiSecret = process.env.TWILIO_API_SECRET;
-    const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;
+    const accountSid = (process.env.TWILIO_ACCOUNT_SID || '').trim();
+    const apiKeySid = (process.env.TWILIO_API_KEY_SID || '').trim();
+    const apiSecret = (process.env.TWILIO_API_SECRET || '').trim();
+    const twimlAppSid = (process.env.TWILIO_TWIML_APP_SID || '').trim();
 
     if (!accountSid || !apiKeySid || !apiSecret || !twimlAppSid) {
         console.error('[Twilio] Missing credentials in environment');
@@ -390,7 +390,7 @@ app.post('/api/twilio-voice', (req, res) => {
     const to = req.body.to || req.query.to || req.body.To || req.query.To;
     console.log('[Twilio Voice] Incoming call connection request to:', to);
 
-    const callerId = process.env.TWILIO_CALLER_ID;
+    const callerId = (process.env.TWILIO_CALLER_ID || '').trim();
     if (!callerId) {
         console.error('[Twilio Voice] TWILIO_CALLER_ID not set');
     }
@@ -430,8 +430,8 @@ app.post('/api/twilio-recording-callback', async (req, res) => {
 
     (async () => {
         try {
-            const accountSid = process.env.TWILIO_ACCOUNT_SID;
-            const authToken = process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_API_SECRET;
+            const accountSid = (process.env.TWILIO_ACCOUNT_SID || '').trim();
+            const authToken = (process.env.TWILIO_AUTH_TOKEN || '').trim() || (process.env.TWILIO_API_SECRET || '').trim();
             
             if (!accountSid || !authToken) {
                 console.error('[Twilio Callback] Missing TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN');
